@@ -78,9 +78,10 @@ public class ParkingService implements IParkingService {
 
         Ticket ticket = ticketOpt.get();
         
-        // Calculate duration in hours
+        // Calculate duration in hours (rounded up, minimum 1 hour)
         long minutes = Duration.between(ticket.getEntryTime(), LocalDateTime.now()).toMinutes();
-        double hours = Math.max(1, Math.ceil(minutes / 60.0));
+        double hoursDecimal = (double) minutes / 60.0;
+        double hours = Math.max(1.0, Math.ceil(hoursDecimal));
         
         // Calculate fee ($2 per hour, minimum $5)
         double amount = Math.max(5.0, hours * 2.0);
