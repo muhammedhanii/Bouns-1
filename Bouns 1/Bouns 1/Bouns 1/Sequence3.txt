@@ -1,0 +1,64 @@
+@startuml ReserveSpotSequence
+title Smart Parking Management System - Reserve Spot Operation
+
+actor User
+participant "ParkingDashboard\n(View)" as View
+participant "ParkingController\n(Controller)" as Controller
+participant "CommandInvoker\n(Invoker)" as Invoker
+participant "ReserveSpotCommand\n(Command)" as Command
+participant "ParkingService\n(Receiver)" as Service
+participant "ParkingRepository\n(Repository)" as Repository
+participant "LEDDisplay\n(Hardware)" as LED
+
+User -> View: Select spotId\nEnter duration (hours)
+activate View
+
+View -> Controller: POST /api/parking/reserve\nreserveSpot(spotId, hours)
+activate Controller
+
+Controller -> Invoker: addCommandToQueue(command)
+activate Invoker
+
+Invoker -> Invoker: enqueue(command)
+deactivate Invoker
+
+Controller -> Invoker: executeNext()
+activate Invoker
+
+Invoker -> Command: execute()
+
+Command -> Service: reserveSpot(spotId, hours)
+activate Service
+
+Service -> Repository: findSpotById(spotId)
+activate Repository
+Repository --> Service: ParkingSpot(available)
+deactivate Repository
+
+Service -> Repository: saveReservation(reservation)
+activate Repository
+Repository --> Service: Reservation(id=201)
+deactivate Repository
+
+Service -> LED: updateDisplay(availableCount)
+activate LED
+LED --> Service: Updated
+deactivate LED
+
+Service --> Command: Reservation(id=201)
+deactivate Service
+
+Command --> Invoker: Reservation
+deactivate Command
+
+Invoker --> Controller: Reservation
+deactivate Invoker
+
+Controller --> View: ResponseEntity<Reservation>
+deactivate Controller
+
+View -> View: showReservation(reservation)
+View --> User: Display Reservation:\n"Reserved until 14:00"
+deactivate View
+
+@enduml

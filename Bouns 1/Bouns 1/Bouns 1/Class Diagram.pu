@@ -1,0 +1,308 @@
+@startuml Smart_Parking_Management_System
+skinparam backgroundColor #FEFEFE
+skinparam classBorderColor #333333
+skinparam classBackgroundColor #FFFFFF
+skinparam arrowColor #333333
+skinparam shadowing false
+skinparam roundCorner 8
+
+title Smart Parking Management System\n<size:14><color #555555>Command Pattern + MVC Architecture</color></size>
+
+
+rectangle "View" #E3F2FD {
+    class ParkingDashboard <<View>> {
+        + showAvailableSpots()
+        + showTicket(ticket: Ticket)
+        + showReservation(res: Reservation)
+        + showParkingStatus(status: ParkingStatus)
+        + showReceipt(receipt: Receipt)
+        + showError(message: String)
+    }
+}
+
+rectangle "Controller" #FFF9C4 {
+    class ParkingController <<@Controller>> {
+        - invoker: CommandInvoker
+        - parkingService: ParkingService
+        --
+        + parkCar(plate: String): ResponseEntity
+        + exitCar(ticketId: Long): ResponseEntity
+        + reserveSpot(spotId: Long, hours: int): ResponseEntity
+        + cancelReservation(resId: Long): ResponseEntity
+        + getParkingStatus(): ResponseEntity
+    }
+    note right of ParkingController
+        <b>Strict Decoupling</b>
+        • No direct Service call
+        • Only via Commands
+    end note
+}
+
+'=============================
+' Command Section
+'=============================
+rectangle "Command Pattern" #F3E5F5 {
+    interface Command <<Interface>> {
+        + {abstract} execute(): Object
+        + {abstract} undo(): void
+    }
+
+    class CommandInvoker <<Invoker>> {
+        - commandQueue: Queue<Command>
+        --
+        + addCommandToQueue(cmd: Command): void
+        + executeNext(): Object
+        + getQueue(): List<Command>
+    }
+
+    class ParkCarCommand <<Concrete Command>> {
+        - parkingService: IParkingService
+        - plateNumber: String
+        - spotId: Long
+        --
+        + execute(): Ticket
+        + undo(): void
+    }
+    
+    class ExitCarCommand <<Concrete Command>> {
+        - parkingService: IParkingService
+        - ticketId: Long
+        --
+        + execute(): Receipt
+        + undo(): void
+    }
+    
+    class ReserveSpotCommand <<Concrete Command>> {
+        - parkingService: IParkingService
+        - spotId: Long
+        - userId: String
+        - hours: int
+        --
+        + execute(): Reservation
+        + undo(): void
+    }
+    
+    class CancelReservationCommand <<Concrete Command>> {
+        - parkingService: IParkingService
+        - reservationId: Long
+        --
+        + execute(): Boolean
+        + undo(): void
+    }
+    
+    class GetParkingStatusCommand <<Concrete Command>> {
+        - parkingService: IParkingService
+        --
+        + execute(): ParkingStatus
+        + undo(): void
+    }
+
+    Command <|.. ParkCarCommand
+    Command <|.. ExitCarCommand
+    Command <|.. ReserveSpotCommand
+    Command <|.. CancelReservationCommand
+    Command <|.. GetParkingStatusCommand
+    
+    CommandInvoker o--> "many" Command : manages
+}
+
+'=============================
+' Service Section
+'=============================
+rectangle "Service" #E8F5E9 {
+    interface IParkingService <<Interface>> {
+        + parkCar(plate: String): Ticket
+        + exitCar(ticketId: Long): Receipt
+        + reserveSpot(spotId: Long, userId: String, hours: int): Reservation
+        + cancelReservation(resId: Long): void
+        + getParkingStatus(): ParkingStatus
+        + getAvailableSpots(): List<ParkingSpot>
+        + findTicketById(id: Long): Optional<Ticket>
+    }
+
+    class ParkingService <<@Service>> <<Receiver>> implements IParkingService {
+        - parkingRepository: IParkingRepository
+        - parkingGate: HardwareReceiver
+        - parkingSensor: HardwareReceiver
+        --
+        + parkCar(plate: String): Ticket
+        + exitCar(ticketId: Long): Receipt
+        + reserveSpot(spotId: Long, userId: String, hours: int): Reservation
+        + cancelReservation(resId: Long): void
+        + getParkingStatus(): ParkingStatus
+        + getAvailableSpots(): List<ParkingSpot>
+        + findTicketById(id: Long): Optional<Ticket>
+    }
+}
+
+'=============================
+' Hardware Section
+'=============================
+rectangle "Hardware" #FFEBEE {
+    interface HardwareReceiver <<Interface>> {
+        + {abstract} execute(): void
+    }
+    
+    class ParkingGate <<Hardware>> {
+        - gateId: int
+        - isOpen: boolean
+        --
+        + openGate(): void
+        + closeGate(): void
+        + getStatus(): String
+    }
+    
+    class ParkingSensor <<Hardware>> {
+        - sensorId: int
+        - spotId: Long
+        - carDetected: boolean
+        --
+        + detectCar(): boolean
+        + updateSpotStatus(): void
+        + triggerAlert(): void
+    }
+    
+    class LEDDisplay <<Hardware>> {
+        - displayId: int
+        - message: String
+        --
+        + showAvailableCount(count: int): void
+        + showMessage(msg: String): void
+        + clear(): void
+    }
+
+    HardwareReceiver <|.. ParkingGate
+    HardwareReceiver <|.. ParkingSensor
+    HardwareReceiver <|.. LEDDisplay
+}
+
+'=============================
+' Repository Section
+'=============================
+rectangle "Repository" #FFF3E0 {
+    interface IParkingRepository <<Interface>> {
+        + save(spot: ParkingSpot): void
+        + findSpotById(id: Long): Optional<ParkingSpot>
+        + findAllSpots(): List<ParkingSpot>
+        + saveReservation(res: Reservation): Long
+        + findReservationById(id: Long): Optional<Reservation>
+        + deleteReservation(id: Long): void
+        + saveTicket(ticket: Ticket): Long
+        + findTicketById(id: Long): Optional<Ticket>
+        + deleteTicket(id: Long): void
+    }
+
+    class ParkingRepository <<@Repository>> implements IParkingRepository {
+        - spotDatabase: List<ParkingSpot>
+        - reservationDatabase: List<Reservation>
+        - ticketDatabase: List<Ticket>
+        --
+        + save(spot: ParkingSpot): void
+        + findSpotById(id: Long): Optional<ParkingSpot>
+        + findAllSpots(): List<ParkingSpot>
+        + saveReservation(res: Reservation): Long
+        + findReservationById(id: Long): Optional<Reservation>
+        + deleteReservation(id: Long): void
+        + saveTicket(ticket: Ticket): Long
+        + findTicketById(id: Long): Optional<Ticket>
+        + deleteTicket(id: Long): void
+    }
+}
+
+'=============================
+' Model Section
+'=============================
+rectangle "Model" #E0F2F1 {
+    class ParkingSpot <<Model>> {
+        - spotId: Long
+        - spotNumber: String
+        - isOccupied: boolean
+        - parkedCar: Car
+        --
+        + occupy(car: Car): void
+        + release(): void
+        + isAvailable(): boolean
+        + getDetails(): String
+    }
+    
+    class Ticket <<Model>> {
+        - ticketId: Long
+        - plateNumber: String
+        - spotId: Long
+        - entryTime: LocalDateTime
+        --
+        + getTicketDetails(): String
+        + getDuration(): long
+    }
+    
+    class Reservation <<Model>> {
+        - reservationId: Long
+        - spotId: Long
+        - userId: String
+        - reservedUntil: LocalDateTime
+        --
+        + isActive(): boolean
+        + isExpired(): boolean
+        + getReservationDetails(): String
+    }
+    
+    class Receipt <<Model>> {
+        - receiptId: Long
+        - ticketId: Long
+        - duration: double
+        - amount: double
+        - exitTime: LocalDateTime
+        --
+        + calculateFee(): double
+        + getReceiptDetails(): String
+    }
+    
+    class ParkingStatus <<Model>> {
+        - totalSpots: int
+        - occupiedSpots: int
+        - availableSpots: int
+        - totalReservations: int
+        --
+        + getOccupancyPercentage(): double
+        + getStatusMessage(): String
+    }
+    
+    class Car <<Model>> {
+        - carId: Long
+        - plateNumber: String
+        - ownerName: String
+        --
+        + getCarDetails(): String
+    }
+
+    ParkingSpot --> Car : contains
+    Reservation --> ParkingSpot : reserves
+    Receipt --> Ticket : generates
+}
+
+'=============================
+' Relationships
+'=============================
+ParkingDashboard -down-> ParkingController : HTTP Request
+
+ParkingController -down-> CommandInvoker : uses
+
+ParkCarCommand -down-> IParkingService : uses
+ExitCarCommand -down-> IParkingService : uses
+ReserveSpotCommand -down-> IParkingService : uses
+CancelReservationCommand -down-> IParkingService : uses
+GetParkingStatusCommand -down-> IParkingService : uses
+
+ParkingService -down-> IParkingRepository : uses
+ParkingService -down-> HardwareReceiver : uses
+
+ParkingRepository -down-> ParkingSpot : manages
+ParkingRepository -down-> Ticket : manages
+ParkingRepository -down-> Reservation : manages
+
+note bottom of ParkCarCommand
+    <b>Command returns Model</b>
+    Controller gets Model from Command
+end note
+
+@enduml

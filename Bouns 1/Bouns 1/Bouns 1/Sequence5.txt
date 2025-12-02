@@ -1,0 +1,66 @@
+@startuml GetStatusSequence
+title Smart Parking Management System - Get Parking Status Operation
+
+actor User
+participant "ParkingDashboard\n(View)" as View
+participant "ParkingController\n(Controller)" as Controller
+participant "CommandInvoker\n(Invoker)" as Invoker
+participant "GetParkingStatusCommand\n(Command)" as Command
+participant "ParkingService\n(Receiver)" as Service
+participant "ParkingRepository\n(Repository)" as Repository
+participant "ParkingSensor\n(Hardware)" as Sensor
+
+User -> View: Click "View Status"
+activate View
+
+View -> Controller: GET /api/parking/status\ngetParkingStatus()
+activate Controller
+
+Controller -> Invoker: addCommandToQueue(command)
+activate Invoker
+
+Invoker -> Invoker: enqueue(command)
+deactivate Invoker
+
+Controller -> Invoker: executeNext()
+activate Invoker
+
+Invoker -> Command: execute()
+
+Command -> Service: getParkingStatus()
+activate Service
+
+Service -> Repository: findAllSpots()
+activate Repository
+Repository --> Service: List<ParkingSpot>
+deactivate Repository
+
+Service -> Sensor: scanAllSpots()
+activate Sensor
+Sensor --> Service: ScanResult
+deactivate Sensor
+
+Service -> Repository: countReservations()
+activate Repository
+Repository --> Service: totalReservations
+deactivate Repository
+
+Service -> Service: createParkingStatus()
+
+Service --> Command: ParkingStatus
+deactivate Service
+
+Command --> Invoker: ParkingStatus
+deactivate Command
+
+Invoker --> Controller: ParkingStatus
+deactivate Invoker
+
+Controller --> View: ResponseEntity<ParkingStatus>
+deactivate Controller
+
+View -> View: showParkingStatus(status)
+View --> User: Display:\n"Available: 15/50\nOccupancy: 70%"
+deactivate View
+
+@enduml

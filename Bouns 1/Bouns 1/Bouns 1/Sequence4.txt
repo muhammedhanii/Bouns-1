@@ -1,0 +1,64 @@
+@startuml CancelReservationSequence
+title Smart Parking Management System - Cancel Reservation Operation
+
+actor User
+participant "ParkingDashboard\n(View)" as View
+participant "ParkingController\n(Controller)" as Controller
+participant "CommandInvoker\n(Invoker)" as Invoker
+participant "CancelReservationCommand\n(Command)" as Command
+participant "ParkingService\n(Receiver)" as Service
+participant "ParkingRepository\n(Repository)" as Repository
+participant "LEDDisplay\n(Hardware)" as LED
+
+User -> View: Enter reservationId\nClick "Cancel"
+activate View
+
+View -> Controller: DELETE /api/parking/reservation\ncancelReservation(reservationId)
+activate Controller
+
+Controller -> Invoker: addCommandToQueue(command)
+activate Invoker
+
+Invoker -> Invoker: enqueue(command)
+deactivate Invoker
+
+Controller -> Invoker: executeNext()
+activate Invoker
+
+Invoker -> Command: execute()
+
+Command -> Service: cancelReservation(reservationId)
+activate Service
+
+Service -> Repository: findReservationById(reservationId)
+activate Repository
+Repository --> Service: Reservation
+deactivate Repository
+
+Service -> Repository: deleteReservation(reservationId)
+activate Repository
+Repository --> Service: Success
+deactivate Repository
+
+Service -> LED: updateDisplay(availableCount)
+activate LED
+LED --> Service: Updated
+deactivate LED
+
+Service --> Command: Boolean(true)
+deactivate Service
+
+Command --> Invoker: Boolean(true)
+deactivate Command
+
+Invoker --> Controller: Boolean(true)
+deactivate Invoker
+
+Controller --> View: ResponseEntity<Boolean>
+deactivate Controller
+
+View -> View: showConfirmation()
+View --> User: Display:\n"Reservation Cancelled"
+deactivate View
+
+@enduml

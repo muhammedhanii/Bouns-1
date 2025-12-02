@@ -1,0 +1,70 @@
+@startuml ParkCarSequence
+title Smart Parking Management System - Park Car Operation
+
+actor User
+participant "ParkingDashboard\n(View)" as View
+participant "ParkingController\n(Controller)" as Controller
+participant "CommandInvoker\n(Invoker)" as Invoker
+participant "ParkCarCommand\n(Command)" as Command
+participant "ParkingService\n(Receiver)" as Service
+participant "ParkingRepository\n(Repository)" as Repository
+participant "ParkingGate\n(Hardware)" as Gate
+participant "LEDDisplay\n(Hardware)" as LED
+
+User -> View: Enter plateNumber\nClick "Park Car"
+activate View
+
+View -> Controller: POST /api/parking/park\nparkCar(plateNumber)
+activate Controller
+
+Controller -> Invoker: addCommandToQueue(command)
+activate Invoker
+
+Invoker -> Invoker: enqueue(command)
+deactivate Invoker
+
+Controller -> Invoker: executeNext()
+activate Invoker
+
+Invoker -> Command: execute()
+
+Command -> Service: parkCar(plateNumber)
+activate Service
+
+Service -> Repository: findAvailableSpot()
+activate Repository
+Repository --> Service: ParkingSpot(id=5)
+deactivate Repository
+
+Service -> Repository: saveTicket(ticket)
+activate Repository
+Repository --> Service: Ticket(id=101)
+deactivate Repository
+
+Service -> Gate: openGate()
+activate Gate
+Gate --> Service: Success
+deactivate Gate
+
+Service -> LED: updateDisplay(availableCount)
+activate LED
+LED --> Service: Updated
+deactivate LED
+
+Service --> Command: Ticket(id=101)
+deactivate Service
+
+Command --> Invoker: Ticket(id=101)
+deactivate Command
+
+Invoker --> Controller: Ticket(id=101)
+deactivate Invoker
+
+Controller --> View: ResponseEntity<Ticket>
+deactivate Controller
+
+View -> View: showTicket(ticket)
+View --> User: Display Success:\n"Ticket #101\nSpot: 5"
+deactivate View
+
+@enduml

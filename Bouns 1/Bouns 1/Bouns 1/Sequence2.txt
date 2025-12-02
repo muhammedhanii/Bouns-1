@@ -1,0 +1,76 @@
+@startuml ExitCarSequence
+title Smart Parking Management System - Exit Car Operation
+
+actor User
+participant "ParkingDashboard\n(View)" as View
+participant "ParkingController\n(Controller)" as Controller
+participant "CommandInvoker\n(Invoker)" as Invoker
+participant "ExitCarCommand\n(Command)" as Command
+participant "ParkingService\n(Receiver)" as Service
+participant "ParkingRepository\n(Repository)" as Repository
+participant "ParkingGate\n(Hardware)" as Gate
+participant "LEDDisplay\n(Hardware)" as LED
+
+User -> View: Enter ticketId\nClick "Exit"
+activate View
+
+View -> Controller: POST /api/parking/exit\nexitCar(ticketId)
+activate Controller
+
+Controller -> Invoker: addCommandToQueue(command)
+activate Invoker
+
+Invoker -> Invoker: enqueue(command)
+deactivate Invoker
+
+Controller -> Invoker: executeNext()
+activate Invoker
+
+Invoker -> Command: execute()
+
+Command -> Service: exitCar(ticketId)
+activate Service
+
+Service -> Repository: findTicketById(ticketId)
+activate Repository
+Repository --> Service: Ticket
+deactivate Repository
+
+Service -> Repository: calculateDuration(ticket)
+Service -> Repository: updateSpotStatus(spotId, AVAILABLE)
+activate Repository
+Repository --> Service: Success
+deactivate Repository
+
+Service -> Repository: saveReceipt(receipt)
+activate Repository
+Repository --> Service: Receipt(id=501)
+deactivate Repository
+
+Service -> Gate: openGate()
+activate Gate
+Gate --> Service: Success
+deactivate Gate
+
+Service -> LED: updateDisplay(availableCount)
+activate LED
+LED --> Service: Updated
+deactivate LED
+
+Service --> Command: Receipt(id=501, amount=50.0)
+deactivate Service
+
+Command --> Invoker: Receipt
+deactivate Command
+
+Invoker --> Controller: Receipt
+deactivate Invoker
+
+Controller --> View: ResponseEntity<Receipt>
+deactivate Controller
+
+View -> View: showReceipt(receipt)
+View --> User: Display Receipt:\n"Amount: $50.0"
+deactivate View
+
+@enduml
